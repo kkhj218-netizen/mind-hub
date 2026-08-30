@@ -8,6 +8,9 @@ const state = {
   selection: null,
   dragging: false,
   start: null,
+  interaction: null,
+  interactionStart: null,
+  selectionStart: null,
   cropDataUrl: "",
   installPrompt: null,
   db: null
@@ -65,7 +68,7 @@ function setMode(mode) {
   el.autoModeBtn.classList.toggle("active", mode === "auto");
   if (mode === "manual") {
     el.editorModeTitle.textContent = "손가락으로 문장을 감싸주세요";
-    el.editorHint.textContent = "원하는 영역의 왼쪽 위에서 오른쪽 아래로 드래그합니다.";
+    el.editorHint.textContent = "문장을 드래그해 선택한 뒤, 박스를 끌어 이동하거나 모서리 점으로 크기를 조절할 수 있어요.";
   } else {
     el.editorModeTitle.textContent = "밑줄 후보를 자동으로 찾아볼게요";
     el.editorHint.textContent = "사진 속 긴 가로선을 찾아 문장 영역을 자동 선택합니다. 실험 기능이라 수동 조정이 필요할 수 있어요.";
@@ -126,28 +129,105 @@ function drawSelection(sel) {
   el.selectionStatus.textContent = `선택 영역 ${Math.round(sel.w)} × ${Math.round(sel.h)}px · 추출 버튼을 눌러주세요.`;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function pointInImage(point) {
+  const b = imageRectWithinStage();
+  return {
+    x: clamp(point.x, b.x, b.x + b.w),
+    y: clamp(point.y, b.y, b.y + b.h)
+  };
+}
+
+function handleName(target) {
+  if (!target?.classList?.contains("handle")) return null;
+  if (target.classList.contains("h1")) return "nw";
+  if (target.classList.contains("h2")) return "ne";
+  if (target.classList.contains("h3")) return "se";
+  if (target.classList.contains("h4")) return "sw";
+  return null;
+}
+
+function resizedSelection(handle, p) {
+  const b = imageRectWithinStage();
+  const s = state.selectionStart;
+  const minSize = 28;
+  let left = s.x;
+  let top = s.y;
+  let right = s.x + s.w;
+  let bottom = s.y + s.h;
+
+  if (handle.includes("w")) left = clamp(p.x, b.x, right - minSize);
+  if (handle.includes("e")) right = clamp(p.x, left + minSize, b.x + b.w);
+  if (handle.includes("n")) top = clamp(p.y, b.y, bottom - minSize);
+  if (handle.includes("s")) bottom = clamp(p.y, top + minSize, b.y + b.h);
+
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
 el.imageStage.addEventListener("pointerdown", (evt) => {
   if (!state.file) return;
+  evt.preventDefault();
+
   state.dragging = true;
-  state.start = getStagePoint(evt);
-  state.selection = { x: state.start.x, y: state.start.y, w: 0, h: 0 };
+  state.interactionStart = getStagePoint(evt);
+  state.selectionStart = state.selection ? { ...state.selection } : null;
+
+  const handle = handleName(evt.target);
+  if (handle && state.selection) {
+    state.interaction = `resize-${handle}`;
+  } else if (state.selection && evt.target.closest?.("#selectionBox")) {
+    state.interaction = "move";
+  } else {
+    state.interaction = "create";
+    state.start = pointInImage(state.interactionStart);
+    state.selection = { x: state.start.x, y: state.start.y, w: 0, h: 0 };
+  }
+
   el.imageStage.setPointerCapture(evt.pointerId);
   drawSelection(state.selection);
 });
+
 el.imageStage.addEventListener("pointermove", (evt) => {
   if (!state.dragging) return;
-  const p = getStagePoint(evt);
-  const x = Math.min(state.start.x, p.x);
-  const y = Math.min(state.start.y, p.y);
-  const w = Math.abs(p.x - state.start.x);
-  const h = Math.abs(p.y - state.start.y);
-  state.selection = { x, y, w, h };
+  evt.preventDefault();
+  const raw = getStagePoint(evt);
+  const p = pointInImage(raw);
+  const b = imageRectWithinStage();
+
+  if (state.interaction === "create") {
+    const x = Math.min(state.start.x, p.x);
+    const y = Math.min(state.start.y, p.y);
+    const w = Math.abs(p.x - state.start.x);
+    const h = Math.abs(p.y - state.start.y);
+    state.selection = { x, y, w, h };
+  } else if (state.interaction === "move" && state.selectionStart) {
+    const dx = raw.x - state.interactionStart.x;
+    const dy = raw.y - state.interactionStart.y;
+    state.selection = {
+      ...state.selectionStart,
+      x: clamp(state.selectionStart.x + dx, b.x, b.x + b.w - state.selectionStart.w),
+      y: clamp(state.selectionStart.y + dy, b.y, b.y + b.h - state.selectionStart.h)
+    };
+  } else if (state.interaction?.startsWith("resize-") && state.selectionStart) {
+    state.selection = resizedSelection(state.interaction.replace("resize-", ""), p);
+  }
+
   drawSelection(state.selection);
 });
+
 function finishDrag(evt) {
   if (!state.dragging) return;
   state.dragging = false;
+  state.interaction = null;
+  state.interactionStart = null;
+  state.selectionStart = null;
   try { el.imageStage.releasePointerCapture(evt.pointerId); } catch {}
+  if (state.selection?.w >= 4 && state.selection?.h >= 4) {
+    el.selectionStatus.textContent = "선택 완료 · 박스를 끌어 이동하거나 모서리 점을 드래그해 크기를 조절할 수 있어요.";
+  }
 }
 el.imageStage.addEventListener("pointerup", finishDrag);
 el.imageStage.addEventListener("pointercancel", finishDrag);
@@ -202,6 +282,7 @@ async function makeCropDataUrl() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(el.bookImage, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
+  // OCR 대비 향상을 위한 가벼운 그레이스케일/대비 보정
   try {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imageData.data;
@@ -299,6 +380,7 @@ async function detectUnderlineCandidate() {
       if (s > bestScore) { bestScore = s; bestY = y; }
     });
 
+    // 너무 긴 수평선만 후보로 간주 (페이지 폭의 24% 이상)
     if (bestY >= 0 && bestScore > sampleW * 0.24) {
       const displayY = imgRect.y + (bestY / sampleH) * imgRect.h;
       const bandH = Math.max(52, imgRect.h * 0.12);
