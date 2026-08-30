@@ -49,15 +49,16 @@ main { padding: 0 16px 24px; }
   border-radius: 999px; background: #eef2f6; color: #344054; font-size: 12px; font-weight: 800;
 }
 .pill.success { background: var(--success-bg); color: var(--success); }
-.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 2px 0 14px; }
+.mode-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 2px 0 14px; }
 .mode-card {
-  min-height: 108px; border: 1px solid var(--line); border-radius: 18px; padding: 14px;
+  min-height: 102px; border: 1px solid var(--line); border-radius: 18px; padding: 11px;
   background: var(--card); color: var(--text); text-align: left;
 }
-.mode-card.active { border: 2px solid var(--accent); padding: 13px; background: #fbfbfc; }
-.mode-card .mode-icon { display: block; font-size: 24px; margin-bottom: 8px; }
+.mode-card.active { border: 2px solid var(--accent); padding: 10px; background: #fbfbfc; }
+.mode-card .mode-icon { display: block; font-size: 22px; margin-bottom: 7px; }
 .mode-card strong, .mode-card small { display: block; }
-.mode-card small { color: var(--muted); margin-top: 4px; }
+.mode-card strong { font-size: 13px; }
+.mode-card small { color: var(--muted); margin-top: 4px; font-size: 10px; line-height: 1.35; }
 .panel {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 16px; margin-bottom: 14px;
@@ -94,10 +95,15 @@ main { padding: 0 16px 24px; }
   touch-action: none; user-select: none; min-height: 220px; display: grid; place-items: center;
 }
 .image-stage img { display: block; width: 100%; height: auto; max-height: 70dvh; object-fit: contain; pointer-events: none; }
+.highlighter-canvas {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none; touch-action: none;
+}
 .selection-box {
-  position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.40);
+  position: absolute; z-index: 4; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.40);
   border-radius: 8px; pointer-events: auto; cursor: move; touch-action: none;
 }
+.image-stage.highlight-mode .selection-box { display: none !important; }
+.image-stage.highlight-mode { cursor: crosshair; }
 .handle {
   position: absolute; width: 24px; height: 24px; background: #fff; border: 3px solid #111827;
   border-radius: 50%; pointer-events: auto; touch-action: none; box-shadow: 0 2px 8px rgba(0,0,0,.22);
@@ -105,7 +111,7 @@ main { padding: 0 16px 24px; }
 .h1 { left: -13px; top: -13px; cursor: nwse-resize; } .h2 { right: -13px; top: -13px; cursor: nesw-resize; }
 .h3 { right: -13px; bottom: -13px; cursor: nwse-resize; } .h4 { left: -13px; bottom: -13px; cursor: nesw-resize; }
 .auto-badge {
-  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  position: absolute; z-index: 5; top: 10px; left: 50%; transform: translateX(-50%);
   background: rgba(17,24,39,.88); color: #fff; padding: 8px 12px; border-radius: 999px; font-size: 12px;
 }
 .editor-actions { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; }
@@ -170,6 +176,8 @@ main { padding: 0 16px 24px; }
   main { padding-left: 24px; padding-right: 24px; }
   .topbar { padding-left: 26px; padding-right: 26px; }
   .action-stack { grid-template-columns: 1fr 1fr; }
+  .mode-card strong { font-size: 14px; }
+  .mode-card small { font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
