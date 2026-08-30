@@ -1,4 +1,4 @@
-const CACHE = "munjang-v1.4";
+const CACHE = "munjang-v1.5";
 const APP_SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./highlighter.js", "./manifest.webmanifest", "./icons/icon-192.svg", "./icons/icon-512.svg"];
 
 self.addEventListener("install", (event) => {
@@ -29,7 +29,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== location.origin) return;
 
-  if (event.request.mode === "navigate") {
+  if (event.request.mode === "navigate" || /\.(?:js|css)$/.test(url.pathname)) {
     event.respondWith(networkFirst(event.request));
     return;
   }
