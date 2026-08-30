@@ -1,4 +1,4 @@
-const CACHE = "munjang-v1.6";
+const CACHE = "munjang-v1.7";
 const APP_SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./highlighter.js", "./ocr-enhance.js", "./manifest.webmanifest", "./icons/icon-192.svg", "./icons/icon-512.svg"];
 
 self.addEventListener("install", (event) => {
