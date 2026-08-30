@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111827" />
-  <meta name="description" content="책 페이지를 찍고 원하는 문장만 드래그해서 OCR로 저장하는 모바일 PWA" />
+  <meta name="description" content="책 페이지를 찍고 원하는 문장만 드래그하거나 형광펜처럼 선택해 OCR로 저장하는 모바일 PWA" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="apple-touch-icon" href="./icons/icon-192.svg" />
   <title>문장수집</title>
@@ -26,15 +26,20 @@
           <div>
             <span class="pill">V1 · 기기 저장</span>
             <h2 id="captureTitle">책에서 발견한 문장을<br />3번의 터치로 저장하세요.</h2>
-            <p>사진을 찍고, 원하는 부분을 드래그하고, 글자로 추출합니다.</p>
+            <p>사진을 찍고, 원하는 부분을 선택하고, 글자로 추출합니다.</p>
           </div>
         </div>
 
         <div class="mode-grid">
           <button id="manualModeBtn" class="mode-card active" type="button">
             <span class="mode-icon">👆</span>
-            <strong>직접 선택</strong>
-            <small>도서관·빌린 책 추천</small>
+            <strong>박스 선택</strong>
+            <small>영역을 직접 지정</small>
+          </button>
+          <button id="highlightModeBtn" class="mode-card" type="button">
+            <span class="mode-icon">🖍️</span>
+            <strong>형광펜</strong>
+            <small>문장 위를 슥 긋기</small>
           </button>
           <button id="autoModeBtn" class="mode-card" type="button">
             <span class="mode-icon">✨</span>
@@ -79,6 +84,7 @@
 
             <div id="imageStage" class="image-stage" tabindex="0" aria-label="문장 선택 영역">
               <img id="bookImage" alt="촬영한 책 페이지" draggable="false" />
+              <canvas id="highlighterCanvas" class="highlighter-canvas hidden" aria-hidden="true"></canvas>
               <div id="selectionBox" class="selection-box hidden" aria-hidden="true">
                 <span class="handle h1"></span><span class="handle h2"></span>
                 <span class="handle h3"></span><span class="handle h4"></span>
@@ -188,5 +194,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="./app.js"></script>
+  <script src="./highlighter.js"></script>
 </body>
 </html>
