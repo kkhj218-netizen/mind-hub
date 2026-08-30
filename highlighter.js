@@ -81,13 +81,15 @@
 
   function boxForStroke(points) {
     const image = imageRectWithinStage();
-    const padding = markerWidth() * 0.72;
+    const width = markerWidth();
+    const paddingX = width * 0.95;
+    const paddingY = width * 0.86;
     const xs = points.map(p => p.x);
     const ys = points.map(p => p.y);
-    const left = clamp(Math.min(...xs) - padding, image.x, image.x + image.w);
-    const right = clamp(Math.max(...xs) + padding, image.x, image.x + image.w);
-    const top = clamp(Math.min(...ys) - padding, image.y, image.y + image.h);
-    const bottom = clamp(Math.max(...ys) + padding, image.y, image.y + image.h);
+    const left = clamp(Math.min(...xs) - paddingX, image.x, image.x + image.w);
+    const right = clamp(Math.max(...xs) + paddingX, image.x, image.x + image.w);
+    const top = clamp(Math.min(...ys) - paddingY, image.y, image.y + image.h);
+    const bottom = clamp(Math.max(...ys) + paddingY, image.y, image.y + image.h);
     return { x: left, y: top, w: Math.max(1, right - left), h: Math.max(1, bottom - top) };
   }
 
@@ -123,7 +125,7 @@
     el.autoModeBtn.classList.remove("active");
     highlightModeBtn.classList.add("active");
     el.editorModeTitle.textContent = "형광펜처럼 문장 위를 그어주세요";
-    el.editorHint.textContent = "가져올 문장을 한 줄씩 손가락으로 슥 그으세요. 여러 줄도 연속으로 선택할 수 있어요.";
+    el.editorHint.textContent = "가져올 문장을 한 줄씩 손가락으로 슥 그으세요. 글자보다 조금 넓게 그으면 인식이 더 정확해요.";
     el.imageStage.classList.add("highlight-mode");
     highlighterCanvas.classList.remove("hidden");
     resetSelection();
@@ -250,6 +252,16 @@
     return merged;
   }
 
+  function expandNaturalBox(box) {
+    const padX = Math.max(14, box.sw * 0.025);
+    const padY = Math.max(10, box.sh * 0.14);
+    const sx = clamp(box.sx - padX, 0, state.imageNatural.w);
+    const sy = clamp(box.sy - padY, 0, state.imageNatural.h);
+    const right = clamp(box.sx + box.sw + padX, 0, state.imageNatural.w);
+    const bottom = clamp(box.sy + box.sh + padY, 0, state.imageNatural.h);
+    return { sx, sy, sw: Math.max(1, right - sx), sh: Math.max(1, bottom - sy) };
+  }
+
   function preprocessForOCR(canvas) {
     try {
       const c = canvas.getContext("2d", { willReadFrequently: true });
@@ -257,7 +269,7 @@
       const d = imageData.data;
       for (let i = 0; i < d.length; i += 4) {
         const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        const v = Math.max(0, Math.min(255, (g - 128) * 1.25 + 128));
+        const v = Math.max(0, Math.min(255, (g - 128) * 1.16 + 128));
         d[i] = d[i + 1] = d[i + 2] = v;
       }
       c.putImageData(imageData, 0, 0);
@@ -268,31 +280,37 @@
     if (!state.highlightBoxes.length) throw new Error("형광펜으로 문장을 먼저 선택해 주세요.");
 
     const lineBoxes = mergeLineBoxes(state.highlightBoxes);
-    const natural = lineBoxes.map(selectionToNatural).sort((a, b) => a.sy - b.sy);
+    const natural = lineBoxes.map(selectionToNatural).map(expandNaturalBox).sort((a, b) => a.sy - b.sy);
     const maxNaturalWidth = Math.max(...natural.map(b => b.sw));
-    const scale = Math.min(1, 1800 / maxNaturalWidth);
-    const gap = 18;
-    const outWidth = Math.max(1, Math.round(maxNaturalWidth * scale));
-    const heights = natural.map(b => Math.max(1, Math.round(b.sh * scale)));
-    const outHeight = Math.max(1, heights.reduce((a, b) => a + b, 0) + gap * Math.max(0, natural.length - 1));
+
+    // 작은 글자는 확대하고, 매우 큰 이미지만 적당히 축소합니다.
+    const scale = Math.min(2.2, 2200 / maxNaturalWidth);
+    const safeScale = Math.max(0.7, scale);
+    const sidePad = Math.round(32 * safeScale);
+    const gap = Math.round(30 * safeScale);
+    const outWidth = Math.max(1, Math.round(maxNaturalWidth * safeScale) + sidePad * 2);
+    const heights = natural.map(b => Math.max(1, Math.round(b.sh * safeScale)));
+    const outHeight = Math.max(1, heights.reduce((a, b) => a + b, 0) + gap * Math.max(0, natural.length - 1) + sidePad * 2);
 
     const canvas = el.cropCanvas;
     canvas.width = outWidth;
     canvas.height = outHeight;
     const out = canvas.getContext("2d", { willReadFrequently: true });
+    out.imageSmoothingEnabled = true;
+    if ("imageSmoothingQuality" in out) out.imageSmoothingQuality = "high";
     out.fillStyle = "#ffffff";
     out.fillRect(0, 0, outWidth, outHeight);
 
-    let y = 0;
+    let y = sidePad;
     natural.forEach((b, index) => {
-      const dw = Math.max(1, Math.round(b.sw * scale));
+      const dw = Math.max(1, Math.round(b.sw * safeScale));
       const dh = heights[index];
-      out.drawImage(el.bookImage, b.sx, b.sy, b.sw, b.sh, 0, y, dw, dh);
+      out.drawImage(el.bookImage, b.sx, b.sy, b.sw, b.sh, sidePad, y, dw, dh);
       y += dh + gap;
     });
 
     preprocessForOCR(canvas);
-    return canvas.toDataURL("image/jpeg", 0.92);
+    return canvas.toDataURL("image/jpeg", 0.98);
   }
 
   makeCropDataUrl = async function() {
